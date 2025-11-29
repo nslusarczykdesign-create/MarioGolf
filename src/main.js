@@ -67,30 +67,62 @@ function update(dt){
   const colliders = level.getActiveColliders(cameraX, W);
   let landingThisFrame = false;
 
+  // We'll use a penetration-based AABB test to decide whether collision is vertical (landing) or horizontal (side)
+  const pb = player.deathBox();
   for (let c of colliders){
-    // c: {x,y,w,h,type}
-    // compute death hitbox (20% smaller than visual)
-    const pb = player.deathBox();
-    const overlap = aabbIntersect(pb, c);
-    if (overlap){
-      // determine if this is a landing on the top
-      const prevBottom = player.prevY + player.h;
-      const curBottom = player.y + player.h;
-      const blockTop = c.y;
-      const horizontallyOverlapping = (player.x + player.w > c.x + 2) && (player.x < c.x + c.w - 2);
-      const movedFromAbove = prevBottom <= blockTop && curBottom >= blockTop;
-      if (c.type === 1 && movedFromAbove && horizontallyOverlapping && Math.abs((curBottom) - blockTop) < 40 && player.vy >= 0){
-        // safe landing: snap player to top
-        player.landOn(blockTop);
-        landingThisFrame = true;
-      } else {
-        // touching side or spike is death
+    // compute overlap (penetration amounts)
+    const overlapX = Math.min(pb.x + pb.w, c.x + c.w) - Math.max(pb.x, c.x);
+    const overlapY = Math.min(pb.y + pb.h, c.y + c.h) - Math.max(pb.y, c.y);
+
+    if (overlapX > 0 && overlapY > 0){
+      // Spike tiles are always death
+      if (c.type === 2){
         dead = true;
         running = false;
         player.die();
         spawnDeathParticles(player.cx(), player.cy());
         restartBtn.hidden = false;
         statusEl.textContent = 'You Died — Click / Tap to Restart';
+        break;
+      }
+
+      // Decide which axis the collision is primarily on by comparing overlap amounts.
+      // Smaller overlap indicates the primary penetration axis.
+      if (overlapY <= overlapX){
+        // Vertical collision (top/bottom). Check if it's a landing from above.
+        const prevBottom = player.prevY + player.h;
+        const curBottom = player.y + player.h;
+        const blockTop = c.y;
+
+        // landedFromAbove: previous bottom was above (or just touching) the block top
+        // and current bottom intersects it; allow small tolerances and allow tiny upward vy.
+        const landedFromAbove = prevBottom <= blockTop + 2 && curBottom >= blockTop - 2 && player.vy >= -80;
+
+        if (landedFromAbove){
+          // Safe landing: snap to top
+          player.landOn(blockTop);
+          landingThisFrame = true;
+          // Continue checking others (landing resolves vertical overlap)
+          continue;
+        } else {
+          // Vertical collision but not from above (e.g. hitting underside) -> death
+          dead = true;
+          running = false;
+          player.die();
+          spawnDeathParticles(player.cx(), player.cy());
+          restartBtn.hidden = false;
+          statusEl.textContent = 'You Died — Click / Tap to Restart';
+          break;
+        }
+      } else {
+        // Horizontal collision (side hit) -> death
+        dead = true;
+        running = false;
+        player.die();
+        spawnDeathParticles(player.cx(), player.cy());
+        restartBtn.hidden = false;
+        statusEl.textContent = 'You Died — Click / Tap to Restart';
+        break;
       }
     }
   }
