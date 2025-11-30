@@ -74,10 +74,8 @@ export default class Player {
       this.angle += this.rotationWhileAirborne * dt;
     }
 
-    // We rely on main.js collision detection to set onGround.
-    // If we are not colliding with a block this frame (handled in main),
-    // we assume we are in the air until the next collision check.
-    // Resetting onGround here allows falling off ledges.
+    // Default to airborne every frame.
+    // main.js collision detection will set this.onGround = true if we land on a block.
     this.onGround = false;
 
     // keep angle normalized
@@ -166,13 +164,6 @@ export default class Player {
     ctx.strokeRect(-this.w/2, -this.h/2, this.w, this.h);
 
     ctx.restore();
-
-    // For debugging: draw death hitbox
-    // const db = this.deathBox();
-    // ctx.save();
-    // ctx.strokeStyle = 'yellow';
-    // ctx.strokeRect(db.x, db.y, db.w, db.h);
-    // ctx.restore();
   }
 
   landOn(blockTop){
@@ -188,8 +179,6 @@ export default class Player {
   jump(){
     this.vy = this.jumpSpeed;
     this.onGround = false;
-    // start rotation if not rotating
-    // keep angle as is, angular velocity applies in update
   }
 
   die(){
